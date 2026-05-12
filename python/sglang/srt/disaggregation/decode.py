@@ -916,11 +916,16 @@ class DecodePreallocQueue:
             else 0
         )
         if self.scheduler.enable_hisparse:
-            # HiSparse pre-alloc only allocates logical indices (alloc_logical_only),
-            # so the logical pool is the binding constraint for admission control.
-            available_size = (
+            # HiSparse pre-alloc allocates both logical indices and host pool space.
+            # Both pools are binding constraints for admission control.
+            logical_available = (
                 self.token_to_kv_pool_allocator.logical_attn_allocator.available_size()
             )
+            host_available = (
+                self.scheduler.hisparse_coordinator.mem_pool_host.available_size()
+            )
+            # Use the tighter constraint between logical and host pools
+            available_size = min(logical_available, host_available)
         else:
             available_size = self.token_to_kv_pool_allocator.available_size()
             # Include evictable decode-radix cache entries in the budget -- they
